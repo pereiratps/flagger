@@ -1,5 +1,7 @@
  # flagger
 
+Olá teste
+
 [![release](https://img.shields.io/github/release/fluxcd/flagger/all.svg)](https://github.com/fluxcd/flagger/releases)
 [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/4783/badge)](https://bestpractices.coreinfrastructure.org/projects/4783)
 [![report](https://goreportcard.com/badge/github.com/fluxcd/flagger)](https://goreportcard.com/report/github.com/fluxcd/flagger)
