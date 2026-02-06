@@ -40,6 +40,7 @@ import (
 	_ "k8s.io/code-generator/cmd/client-gen/generators"
 	"k8s.io/klog/v2"
 
+	"github.com/fluxcd/flagger/pkg/api"
 	"github.com/fluxcd/flagger/pkg/canary"
 	clientset "github.com/fluxcd/flagger/pkg/client/clientset/versioned"
 	informers "github.com/fluxcd/flagger/pkg/client/informers/externalversions"
@@ -86,6 +87,10 @@ var (
 	kubeconfigServiceMesh    string
 	clusterName              string
 	noCrossNamespaceRefs     bool
+	enableRestAPI            bool
+	restAPIPort              string
+	restAPIAuth              bool
+	restAPICORS              string
 )
 
 func init() {
@@ -121,6 +126,10 @@ func init() {
 	flag.StringVar(&kubeconfigServiceMesh, "kubeconfig-service-mesh", "", "Path to a kubeconfig for the service mesh control plane cluster.")
 	flag.StringVar(&clusterName, "cluster-name", "", "Cluster name to be included in alert msgs.")
 	flag.BoolVar(&noCrossNamespaceRefs, "no-cross-namespace-refs", false, "When set to true, Flagger can only refer to resources in the same namespace.")
+	flag.BoolVar(&enableRestAPI, "enable-rest-api", false, "Enable REST API server.")
+	flag.StringVar(&restAPIPort, "rest-api-port", "8081", "REST API server port.")
+	flag.BoolVar(&restAPIAuth, "rest-api-auth", false, "Enable authentication for REST API.")
+	flag.StringVar(&restAPICORS, "rest-api-cors", "*", "CORS allowed origins for REST API (comma-separated).")
 }
 
 func main() {
@@ -213,6 +222,24 @@ func main() {
 
 	// start HTTP server
 	go server.ListenAndServe(port, 3*time.Second, logger, stopCh)
+
+	// start REST API server if enabled
+	if enableRestAPI {
+		apiConfig := api.ServerConfig{
+			Port:           restAPIPort,
+			AuthEnabled:    restAPIAuth,
+			AllowedOrigins: api.ParseAllowedOrigins(restAPICORS),
+			ReadTimeout:    5 * time.Second,
+			WriteTimeout:   60 * time.Second,
+			IdleTimeout:    15 * time.Second,
+		}
+		apiServer := api.NewServer(apiConfig, kubeClient, flaggerClient, logger)
+		go func() {
+			if err := apiServer.Start(stopCh); err != nil {
+				logger.Errorf("REST API server error: %v", err)
+			}
+		}()
+	}
 
 	setOwnerRefs := true
 	// Router shouldn't set OwnerRefs on resources that they create since the
