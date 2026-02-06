@@ -32,6 +32,7 @@ Flagger documentation can be found at [fluxcd.io/flagger](https://fluxcd.io/flag
   * [Webhooks](https://fluxcd.io/flagger/usage/webhooks)
   * [Alerting](https://fluxcd.io/flagger/usage/alerting)
   * [Monitoring](https://fluxcd.io/flagger/usage/monitoring)
+  * [REST API](docs/rest-api.md)
 * Tutorials
   * [App Mesh](https://fluxcd.io/flagger/tutorials/appmesh-progressive-delivery)
   * [Istio](https://fluxcd.io/flagger/tutorials/istio-progressive-delivery)
