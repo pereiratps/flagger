@@ -1,0 +1,506 @@
+openapi: 3.0.0
+info:
+  title: Flagger REST API
+  description: |
+    REST API for controlling Flagger canary deployments.
+    
+    This API provides endpoints to manage canary deployments, including listing canaries,
+    getting details, and controlling rollout operations such as promote, pause, resume, and rollback.
+  version: 1.0.0
+  contact:
+    name: Flagger Project
+    url: https://github.com/fluxcd/flagger
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+
+servers:
+  - url: http://localhost:8081
+    description: Local development server
+  - url: https://flagger.example.com
+    description: Production server
+
+security:
+  - BearerAuth: []
+
+paths:
+  /healthz:
+    get:
+      summary: Health check
+      description: Returns the health status of the API server
+      operationId: healthCheck
+      security: []
+      responses:
+        '200':
+          description: Server is healthy
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: OK
+
+  /readyz:
+    get:
+      summary: Readiness check
+      description: Returns the readiness status of the API server
+      operationId: readinessCheck
+      security: []
+      responses:
+        '200':
+          description: Server is ready
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: OK
+        '503':
+          description: Server is not ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/canaries:
+    get:
+      summary: List all canaries
+      description: Returns a list of all canary deployments across all namespaces
+      operationId: listAllCanaries
+      tags:
+        - Canaries
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CanaryListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/namespaces/{namespace}/canaries:
+    get:
+      summary: List canaries in namespace
+      description: Returns a list of canary deployments in a specific namespace
+      operationId: listCanariesInNamespace
+      tags:
+        - Canaries
+      parameters:
+        - $ref: '#/components/parameters/Namespace'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CanaryListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/namespaces/{namespace}/canaries/{name}:
+    get:
+      summary: Get canary details
+      description: Returns detailed information about a specific canary deployment
+      operationId: getCanary
+      tags:
+        - Canaries
+      parameters:
+        - $ref: '#/components/parameters/Namespace'
+        - $ref: '#/components/parameters/CanaryName'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CanaryResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/namespaces/{namespace}/canaries/{name}/promote:
+    post:
+      summary: Promote canary
+      description: Promotes a canary deployment to production
+      operationId: promoteCanary
+      tags:
+        - Canary Operations
+      parameters:
+        - $ref: '#/components/parameters/Namespace'
+        - $ref: '#/components/parameters/CanaryName'
+      requestBody:
+        description: Promotion options
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PromoteRequest'
+      responses:
+        '200':
+          description: Promotion initiated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/namespaces/{namespace}/canaries/{name}/pause:
+    post:
+      summary: Pause canary rollout
+      description: Pauses an active canary rollout
+      operationId: pauseCanary
+      tags:
+        - Canary Operations
+      parameters:
+        - $ref: '#/components/parameters/Namespace'
+        - $ref: '#/components/parameters/CanaryName'
+      responses:
+        '200':
+          description: Canary paused successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/namespaces/{namespace}/canaries/{name}/resume:
+    post:
+      summary: Resume canary rollout
+      description: Resumes a paused canary rollout
+      operationId: resumeCanary
+      tags:
+        - Canary Operations
+      parameters:
+        - $ref: '#/components/parameters/Namespace'
+        - $ref: '#/components/parameters/CanaryName'
+      responses:
+        '200':
+          description: Canary resumed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/namespaces/{namespace}/canaries/{name}/rollback:
+    post:
+      summary: Rollback canary deployment
+      description: Rolls back a canary deployment to the primary version
+      operationId: rollbackCanary
+      tags:
+        - Canary Operations
+      parameters:
+        - $ref: '#/components/parameters/Namespace'
+        - $ref: '#/components/parameters/CanaryName'
+      responses:
+        '200':
+          description: Rollback initiated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/namespaces/{namespace}/canaries/{name}/metrics:
+    get:
+      summary: Get canary metrics
+      description: Returns current metrics for a canary deployment
+      operationId: getCanaryMetrics
+      tags:
+        - Metrics
+      parameters:
+        - $ref: '#/components/parameters/Namespace'
+        - $ref: '#/components/parameters/CanaryName'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetricsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/namespaces/{namespace}/canaries/{name}/events:
+    get:
+      summary: Get canary events
+      description: Returns recent events for a canary deployment
+      operationId: getCanaryEvents
+      tags:
+        - Events
+      parameters:
+        - $ref: '#/components/parameters/Namespace'
+        - $ref: '#/components/parameters/CanaryName'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: |
+        JWT token or Kubernetes service account token.
+        Use the Authorization header with format: `Bearer <token>`
+
+  parameters:
+    Namespace:
+      name: namespace
+      in: path
+      required: true
+      description: Kubernetes namespace
+      schema:
+        type: string
+        example: production
+    
+    CanaryName:
+      name: name
+      in: path
+      required: true
+      description: Canary deployment name
+      schema:
+        type: string
+        example: my-app
+
+  schemas:
+    CanaryListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CanaryResponse'
+        total:
+          type: integer
+          description: Total number of canaries
+          example: 5
+
+    CanaryResponse:
+      type: object
+      properties:
+        metadata:
+          $ref: '#/components/schemas/CanaryMetadata'
+        spec:
+          type: object
+          description: Canary specification
+          additionalProperties: true
+        status:
+          $ref: '#/components/schemas/CanaryStatus'
+
+    CanaryMetadata:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Canary name
+          example: my-app
+        namespace:
+          type: string
+          description: Kubernetes namespace
+          example: production
+        createdAt:
+          type: string
+          format: date-time
+          description: Creation timestamp
+          example: "2026-02-01T10:00:00Z"
+
+    CanaryStatus:
+      type: object
+      properties:
+        phase:
+          type: string
+          description: Current phase of the canary
+          enum:
+            - Initializing
+            - Initialized
+            - Waiting
+            - Progressing
+            - WaitingPromotion
+            - Promoting
+            - Finalising
+            - Succeeded
+            - Failed
+            - Terminating
+            - Terminated
+          example: Progressing
+        canaryWeight:
+          type: integer
+          description: Current traffic weight to canary (0-100)
+          example: 20
+        failedChecks:
+          type: integer
+          description: Number of failed checks
+          example: 0
+        iterations:
+          type: integer
+          description: Number of analysis iterations completed
+          example: 2
+        lastTransitionTime:
+          type: string
+          format: date-time
+          description: Last transition timestamp
+          example: "2026-02-06T14:30:00Z"
+
+    PromoteRequest:
+      type: object
+      properties:
+        force:
+          type: boolean
+          description: Force promotion without waiting for analysis
+          default: false
+        skipAnalysis:
+          type: boolean
+          description: Skip analysis and promote immediately
+          default: false
+
+    OperationResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          description: Operation result message
+          example: Canary promotion initiated
+
+    MetricsResponse:
+      type: object
+      properties:
+        canary:
+          type: string
+          description: Canary identifier
+          example: production/my-app
+        metrics:
+          type: object
+          description: Current metrics
+          additionalProperties: true
+          example:
+            requestSuccessRate: 99.5
+            requestDuration: 250
+
+    EventResponse:
+      type: object
+      properties:
+        type:
+          type: string
+          description: Event type
+          example: Normal
+        reason:
+          type: string
+          description: Event reason
+          example: PromotionStarted
+        message:
+          type: string
+          description: Event message
+          example: Canary promotion started
+        timestamp:
+          type: string
+          format: date-time
+          description: Event timestamp
+          example: "2026-02-06T14:30:00Z"
+
+    EventListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/EventResponse'
+        total:
+          type: integer
+          description: Total number of events
+          example: 10
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error type
+          example: Not Found
+        message:
+          type: string
+          description: Error message
+          example: Canary production/my-app not found
+        code:
+          type: integer
+          description: HTTP status code
+          example: 404
+
+  responses:
+    Unauthorized:
+      description: Unauthorized - Missing or invalid authentication
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    
+    Forbidden:
+      description: Forbidden - Insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    
+    NotFound:
+      description: Not Found - Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    
+    InternalServerError:
+      description: Internal Server Error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+tags:
+  - name: Canaries
+    description: Endpoints for listing and retrieving canary deployments
+  - name: Canary Operations
+    description: Endpoints for controlling canary rollouts
+  - name: Metrics
+    description: Endpoints for canary metrics
+  - name: Events
+    description: Endpoints for canary events
