@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	authenticationv1 "k8s.io/api/authentication/v1"
 	authv1 "k8s.io/api/authorization/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -114,18 +115,40 @@ func AuthMiddleware(kubeClient kubernetes.Interface, logger *zap.SugaredLogger, 
 				return
 			}
 
-			// Verify token with Kubernetes RBAC
-			// For now, we'll do a simple TokenReview
-			// In production, you might want to cache the results
+			// Verify token with Kubernetes TokenReview API
 			ctx := context.Background()
 
+			// First, validate the token using TokenReview
+			tokenReview := &authenticationv1.TokenReview{
+				Spec: authenticationv1.TokenReviewSpec{
+					Token: token,
+				},
+			}
+			
+			tokenResult, err := kubeClient.AuthenticationV1().TokenReviews().Create(ctx, tokenReview, metav1.CreateOptions{})
+			if err != nil {
+				logger.Errorf("Failed to verify token: %v", err)
+				writeError(w, "Token verification failed", http.StatusUnauthorized)
+				return
+			}
+			
+			if !tokenResult.Status.Authenticated {
+				writeError(w, "Invalid token", http.StatusUnauthorized)
+				return
+			}
+			
+			// Extract user identity from token review result
+			user := tokenResult.Status.User.Username
+			groups := tokenResult.Status.User.Groups
+			
 			// Create a SubjectAccessReview to check permissions
 			// Extract resource info from the request path
-			verb := getVerbFromMethod(r.Method)
+			verb := getVerbFromMethod(r.Method, r.URL.Path)
 
 			sar := &authv1.SubjectAccessReview{
 				Spec: authv1.SubjectAccessReviewSpec{
-					User: "system:serviceaccount", // This should be extracted from token
+					User:   user,
+					Groups: groups,
 					ResourceAttributes: &authv1.ResourceAttributes{
 						Namespace: "*",
 						Verb:      verb,
@@ -152,12 +175,20 @@ func AuthMiddleware(kubeClient kubernetes.Interface, logger *zap.SugaredLogger, 
 	}
 }
 
-// getVerbFromMethod converts HTTP method to Kubernetes RBAC verb
-func getVerbFromMethod(method string) string {
+// getVerbFromMethod converts HTTP method and path to Kubernetes RBAC verb
+func getVerbFromMethod(method string, path string) string {
 	switch method {
 	case "GET":
-		return "get"
+		if strings.Contains(path, "/canaries/") && !strings.HasSuffix(path, "/canaries") {
+			return "get"
+		}
+		return "list"
 	case "POST":
+		// POST to operation endpoints (promote, pause, resume, rollback) is an update
+		if strings.Contains(path, "/promote") || strings.Contains(path, "/pause") ||
+			strings.Contains(path, "/resume") || strings.Contains(path, "/rollback") {
+			return "update"
+		}
 		return "create"
 	case "PUT", "PATCH":
 		return "update"
