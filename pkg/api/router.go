@@ -25,31 +25,31 @@ import (
 // SetupRouter sets up the API router with all routes
 func SetupRouter(handler *Handler) *mux.Router {
 	router := mux.NewRouter()
-	
+
 	// API v1 routes
 	apiV1 := router.PathPrefix("/api/v1").Subrouter()
-	
+
 	// List all canaries
 	apiV1.HandleFunc("/canaries", handler.ListAllCanaries).Methods("GET")
-	
+
 	// Namespace-specific routes
 	apiV1.HandleFunc("/namespaces/{namespace}/canaries", handler.ListCanariesInNamespace).Methods("GET")
 	apiV1.HandleFunc("/namespaces/{namespace}/canaries/{name}", handler.GetCanary).Methods("GET")
-	
+
 	// Canary operations
 	apiV1.HandleFunc("/namespaces/{namespace}/canaries/{name}/promote", handler.PromoteCanary).Methods("POST")
 	apiV1.HandleFunc("/namespaces/{namespace}/canaries/{name}/pause", handler.PauseCanary).Methods("POST")
 	apiV1.HandleFunc("/namespaces/{namespace}/canaries/{name}/resume", handler.ResumeCanary).Methods("POST")
 	apiV1.HandleFunc("/namespaces/{namespace}/canaries/{name}/rollback", handler.RollbackCanary).Methods("POST")
-	
+
 	// Metrics and events
 	apiV1.HandleFunc("/namespaces/{namespace}/canaries/{name}/metrics", handler.GetCanaryMetrics).Methods("GET")
 	apiV1.HandleFunc("/namespaces/{namespace}/canaries/{name}/events", handler.GetCanaryEvents).Methods("GET")
-	
+
 	// Health checks
 	router.HandleFunc("/healthz", handler.Healthz).Methods("GET")
 	router.HandleFunc("/readyz", handler.Readyz).Methods("GET")
-	
+
 	return router
 }
 

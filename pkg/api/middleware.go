@@ -38,9 +38,9 @@ func LoggingMiddleware(logger *zap.SugaredLogger) Middleware {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
 			logger.Infof("Started %s %s", r.Method, r.URL.Path)
-			
+
 			next.ServeHTTP(w, r)
-			
+
 			duration := time.Since(start)
 			logger.Infof("Completed %s %s in %v", r.Method, r.URL.Path, duration)
 		})
@@ -52,7 +52,7 @@ func CORSMiddleware(allowedOrigins []string) Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			origin := r.Header.Get("Origin")
-			
+
 			// Check if origin is allowed
 			allowed := false
 			for _, allowedOrigin := range allowedOrigins {
@@ -61,7 +61,7 @@ func CORSMiddleware(allowedOrigins []string) Middleware {
 					break
 				}
 			}
-			
+
 			if allowed {
 				if origin != "" {
 					w.Header().Set("Access-Control-Allow-Origin", origin)
@@ -72,13 +72,13 @@ func CORSMiddleware(allowedOrigins []string) Middleware {
 				w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 				w.Header().Set("Access-Control-Max-Age", "86400")
 			}
-			
+
 			// Handle preflight requests
 			if r.Method == "OPTIONS" {
 				w.WriteHeader(http.StatusOK)
 				return
 			}
-			
+
 			next.ServeHTTP(w, r)
 		})
 	}
@@ -93,36 +93,36 @@ func AuthMiddleware(kubeClient kubernetes.Interface, logger *zap.SugaredLogger, 
 				next.ServeHTTP(w, r)
 				return
 			}
-			
+
 			// Extract token from Authorization header
 			authHeader := r.Header.Get("Authorization")
 			if authHeader == "" {
 				writeError(w, "Missing Authorization header", http.StatusUnauthorized)
 				return
 			}
-			
+
 			// Check for Bearer token
 			parts := strings.SplitN(authHeader, " ", 2)
 			if len(parts) != 2 || parts[0] != "Bearer" {
 				writeError(w, "Invalid Authorization header format", http.StatusUnauthorized)
 				return
 			}
-			
+
 			token := parts[1]
 			if token == "" {
 				writeError(w, "Missing token", http.StatusUnauthorized)
 				return
 			}
-			
+
 			// Verify token with Kubernetes RBAC
 			// For now, we'll do a simple TokenReview
 			// In production, you might want to cache the results
 			ctx := context.Background()
-			
+
 			// Create a SubjectAccessReview to check permissions
 			// Extract resource info from the request path
 			verb := getVerbFromMethod(r.Method)
-			
+
 			sar := &authv1.SubjectAccessReview{
 				Spec: authv1.SubjectAccessReviewSpec{
 					User: "system:serviceaccount", // This should be extracted from token
@@ -134,19 +134,19 @@ func AuthMiddleware(kubeClient kubernetes.Interface, logger *zap.SugaredLogger, 
 					},
 				},
 			}
-			
+
 			result, err := kubeClient.AuthorizationV1().SubjectAccessReviews().Create(ctx, sar, metav1.CreateOptions{})
 			if err != nil {
 				logger.Errorf("Failed to verify authorization: %v", err)
 				writeError(w, "Authorization verification failed", http.StatusInternalServerError)
 				return
 			}
-			
+
 			if !result.Status.Allowed {
 				writeError(w, "Forbidden: insufficient permissions", http.StatusForbidden)
 				return
 			}
-			
+
 			next.ServeHTTP(w, r)
 		})
 	}

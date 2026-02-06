@@ -66,24 +66,24 @@ func NewServer(
 func (s *Server) Start(stopCh <-chan struct{}) error {
 	// Create handler
 	handler := NewHandler(s.kubeClient, s.flaggerClient, s.logger)
-	
+
 	// Setup router
 	router := SetupRouter(handler)
-	
+
 	// Apply middleware
 	var middlewares []Middleware
 	middlewares = append(middlewares, LoggingMiddleware(s.logger))
-	
+
 	if len(s.config.AllowedOrigins) > 0 {
 		middlewares = append(middlewares, CORSMiddleware(s.config.AllowedOrigins))
 	}
-	
+
 	if s.config.AuthEnabled {
 		middlewares = append(middlewares, AuthMiddleware(s.kubeClient, s.logger, true))
 	}
-	
+
 	finalHandler := ApplyMiddleware(router, middlewares...)
-	
+
 	// Create HTTP server
 	s.httpServer = &http.Server{
 		Addr:         ":" + s.config.Port,
@@ -92,28 +92,28 @@ func (s *Server) Start(stopCh <-chan struct{}) error {
 		WriteTimeout: s.config.WriteTimeout,
 		IdleTimeout:  s.config.IdleTimeout,
 	}
-	
+
 	s.logger.Infof("Starting REST API server on port %s", s.config.Port)
-	
+
 	// Start server in background
 	go func() {
 		if err := s.httpServer.ListenAndServe(); err != http.ErrServerClosed {
 			s.logger.Fatalf("REST API server crashed: %v", err)
 		}
 	}()
-	
+
 	// Wait for shutdown signal
 	<-stopCh
-	
+
 	// Graceful shutdown
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	
+
 	if err := s.httpServer.Shutdown(ctx); err != nil {
 		s.logger.Errorf("REST API server graceful shutdown failed: %v", err)
 		return err
 	}
-	
+
 	s.logger.Info("REST API server stopped")
 	return nil
 }
@@ -135,7 +135,7 @@ func ParseAllowedOrigins(origins string) []string {
 	if origins == "" {
 		return []string{}
 	}
-	
+
 	parts := strings.Split(origins, ",")
 	result := make([]string, 0, len(parts))
 	for _, part := range parts {
