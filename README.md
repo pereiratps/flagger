@@ -16,6 +16,10 @@ by gradually shifting traffic to the new version while measuring metrics and run
 Flagger implements several deployment strategies (Canary releases, A/B testing, Blue/Green mirroring)
 and integrates with various Kubernetes ingress controllers, service mesh, and monitoring solutions.
 
+Additionally, Flagger provides a **REST API** for programmatic control and monitoring of canary deployments,
+enabling integration with UIs, CI/CD pipelines, and other automation tools.
+See the [REST API documentation](docs/gitbook/usage/rest-api.md) for more information.
+
 Flagger is a [Cloud Native Computing Foundation](https://cncf.io/) project
 and part of the [Flux](https://fluxcd.io) family of GitOps tools.
 
@@ -32,6 +36,7 @@ Flagger documentation can be found at [fluxcd.io/flagger](https://fluxcd.io/flag
   * [Webhooks](https://fluxcd.io/flagger/usage/webhooks)
   * [Alerting](https://fluxcd.io/flagger/usage/alerting)
   * [Monitoring](https://fluxcd.io/flagger/usage/monitoring)
+  * [REST API](docs/gitbook/usage/rest-api.md)
 * Tutorials
   * [App Mesh](https://fluxcd.io/flagger/tutorials/appmesh-progressive-delivery)
   * [Istio](https://fluxcd.io/flagger/tutorials/istio-progressive-delivery)

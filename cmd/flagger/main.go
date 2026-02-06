@@ -40,6 +40,7 @@ import (
 	_ "k8s.io/code-generator/cmd/client-gen/generators"
 	"k8s.io/klog/v2"
 
+	"github.com/fluxcd/flagger/pkg/api"
 	"github.com/fluxcd/flagger/pkg/canary"
 	clientset "github.com/fluxcd/flagger/pkg/client/clientset/versioned"
 	informers "github.com/fluxcd/flagger/pkg/client/informers/externalversions"
@@ -86,6 +87,10 @@ var (
 	kubeconfigServiceMesh    string
 	clusterName              string
 	noCrossNamespaceRefs     bool
+	enableAPI                bool
+	apiPort                  string
+	apiBearerToken           string
+	apiCORSOrigins           string
 )
 
 func init() {
@@ -121,6 +126,10 @@ func init() {
 	flag.StringVar(&kubeconfigServiceMesh, "kubeconfig-service-mesh", "", "Path to a kubeconfig for the service mesh control plane cluster.")
 	flag.StringVar(&clusterName, "cluster-name", "", "Cluster name to be included in alert msgs.")
 	flag.BoolVar(&noCrossNamespaceRefs, "no-cross-namespace-refs", false, "When set to true, Flagger can only refer to resources in the same namespace.")
+	flag.BoolVar(&enableAPI, "enable-api", false, "Enable REST API server for controlling canary deployments.")
+	flag.StringVar(&apiPort, "api-port", "8081", "REST API server port.")
+	flag.StringVar(&apiBearerToken, "api-token", "", "Bearer token for REST API authentication. If empty, authentication is disabled.")
+	flag.StringVar(&apiCORSOrigins, "api-cors-origins", "", "Comma-separated list of allowed CORS origins for REST API. Use * to allow all.")
 }
 
 func main() {
@@ -213,6 +222,24 @@ func main() {
 
 	// start HTTP server
 	go server.ListenAndServe(port, 3*time.Second, logger, stopCh)
+
+	// start API server if enabled
+	if enableAPI {
+		corsOrigins := []string{}
+		if apiCORSOrigins != "" {
+			corsOrigins = strings.Split(apiCORSOrigins, ",")
+		}
+		
+		apiConfig := api.ServerConfig{
+			Port:           apiPort,
+			BearerToken:    fromEnv("API_TOKEN", apiBearerToken),
+			AllowedOrigins: corsOrigins,
+			EnableAPI:      enableAPI,
+		}
+		
+		apiServer := api.NewServer(apiConfig, kubeClient, flaggerClient, logger)
+		go apiServer.ListenAndServe(stopCh)
+	}
 
 	setOwnerRefs := true
 	// Router shouldn't set OwnerRefs on resources that they create since the
